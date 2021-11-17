@@ -61,11 +61,14 @@ parser.add_argument('--log-valid-interval', type=int, default=5000)
 
 parser.add_argument('--checkpoint-interval', type=int, default=5000)
 
+parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
+
 args = parser.parse_args()
 
 
 # --------------- Loading ---------------
 
+device = torch.device(args.device)
 
 def train():
     
@@ -118,12 +121,12 @@ def train():
                                   num_workers=args.num_workers)
 
     # Model
-    model = MattingBase(args.model_backbone).cuda()
+    model = MattingBase(args.model_backbone).to(device)
 
     if args.model_last_checkpoint is not None:
         load_matched_state_dict(model, torch.load(args.model_last_checkpoint))
     elif args.model_pretrain_initialization is not None:
-        model.load_pretrained_deeplabv3_state_dict(torch.load(args.model_pretrain_initialization)['model_state'])
+        model.load_pretrained_deeplabv3_state_dict(torch.load(args.model_pretrain_initialization, map_location=device))
 
     optimizer = Adam([
         {'params': model.backbone.parameters(), 'lr': 1e-4},
@@ -142,9 +145,9 @@ def train():
         for i, ((true_pha, true_fgr), true_bgr) in enumerate(tqdm(dataloader_train)):
             step = epoch * len(dataloader_train) + i
 
-            true_pha = true_pha.cuda(non_blocking=True)
-            true_fgr = true_fgr.cuda(non_blocking=True)
-            true_bgr = true_bgr.cuda(non_blocking=True)
+            true_pha = true_pha.to(device, non_blocking=True)
+            true_fgr = true_fgr.to(device, non_blocking=True)
+            true_bgr = true_bgr.to(device, non_blocking=True)
             true_pha, true_fgr, true_bgr = random_crop(true_pha, true_fgr, true_bgr)
             
             true_src = true_bgr.clone()
@@ -244,9 +247,9 @@ def valid(model, dataloader, writer, step):
         for (true_pha, true_fgr), true_bgr in dataloader:
             batch_size = true_pha.size(0)
             
-            true_pha = true_pha.cuda(non_blocking=True)
-            true_fgr = true_fgr.cuda(non_blocking=True)
-            true_bgr = true_bgr.cuda(non_blocking=True)
+            true_pha = true_pha.to(device, non_blocking=True)
+            true_fgr = true_fgr.to(device, non_blocking=True)
+            true_bgr = true_bgr.to(device, non_blocking=True)
             true_src = true_pha * true_fgr + (1 - true_pha) * true_bgr
 
             pred_pha, pred_fgr, pred_err = model(true_src, true_bgr)[:3]
