@@ -1,8 +1,8 @@
 # Our modifications
 
 * Added `--device` flag and replaced `.cuda()` calls in `train_base.py` with `.to(device)` calls.
-* Added to device flag in `train_base.py` at `model.load_pretrained_deeplabv3_state_dict` and removed the (incorrect) `model_state` look.
 * Updated paths in `DATA_PATH`.
+* Performed end-to-end integration of segmenter into the Video Matting codebase.
 
 # Real-Time High-Resolution Background Matting
 

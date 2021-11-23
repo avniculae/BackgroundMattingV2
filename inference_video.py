@@ -59,7 +59,7 @@ parser.add_argument('--video-bgr', type=str, required=True)
 parser.add_argument('--video-target-bgr', type=str, default=None, help="Path to video onto which to composite the output (default to flat green)")
 parser.add_argument('--video-resize', type=int, default=None, nargs=2)
 
-parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cuda')
+parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
 parser.add_argument('--preprocess-alignment', action='store_true')
 
 parser.add_argument('--output-dir', type=str, required=True)
