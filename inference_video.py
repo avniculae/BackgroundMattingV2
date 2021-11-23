@@ -39,6 +39,8 @@ from dataset import augmentation as A
 from model import MattingBase, MattingRefine
 from inference_utils import HomographicAlignment
 
+from model_loader import load_model_and_optimizer
+
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
 
@@ -125,14 +127,7 @@ device = torch.device(args.device)
 
 # Load model
 if args.model_type == 'mattingbase':
-    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
-        model = MattingBase(args.model_backbone)
-    else:
-        print('aici')
-        model_cfg = factory.create_model_cfg(args)
-        print('bam')
-        model = factory.create_segmenter(model_cfg)
-        print('acolo')
+    model, _ = load_model_and_optimizer(args, device)
 if args.model_type == 'mattingrefine':
     model = MattingRefine(
         args.model_backbone,

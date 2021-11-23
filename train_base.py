@@ -15,6 +15,7 @@ Example:
 """
 
 import argparse
+from Uformer.model import Uformer
 import kornia
 import torch
 import os
@@ -36,20 +37,14 @@ from dataset import ImagesDataset, ZipDataset, VideoDataset, SampleDataset
 from dataset import augmentation as A
 from model import MattingBase
 from model.utils import load_matched_state_dict
-
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
-
-from segm.model import factory
-
-
+from model_loader import load_model_and_optimizer
 
 # --------------- Arguments ---------------
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--dataset-name', type=str, required=True, choices=DATA_PATH.keys())
 
-parser.add_argument('--model-backbone', type=str, required=True)
+parser.add_argument('--model-backbone', type=str, required=False)
 parser.add_argument('--model-name', type=str, required=True)
 parser.add_argument('--model-pretrain-initialization', type=str, default=None)
 parser.add_argument('--model-last-checkpoint', type=str, default=None)
@@ -67,20 +62,29 @@ parser.add_argument('--checkpoint-interval', type=int, default=5000)
 
 parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
 
+
+# segmenter 
+# ----------------------------------
 parser.add_argument('--decoder', type=str, choices = ['mask_transformer', 'linear'], default='mask_transformer')
 parser.add_argument('--dropout', type=float, default=0.0)
 parser.add_argument('--drop-path', type=float, default=0.1)
 
+# Uformer 
+# ----------------------------------
+parser.add_argument('--arch', type=str, choices = ['UNet', 'Uformer', 'Uformer16', 'Uformer32', 'Uformer_CatCross', 'Uformer_Cross'], default=None)
+parser.add_argument('--embed_dim', type=int, default=16)
+parser.add_argument('--win_size', type=int, default=8)
+parser.add_argument('--train_ps', type=int, default=512)
+parser.add_argument('--token_projection', type=str, default = 'linear')
+parser.add_argument('--token_mlp', type=str, default = 'ffn')
 
 args = parser.parse_args()
-
 
 # --------------- Loading ---------------
 
 device = torch.device(args.device)
 
 def train():
-    
     # Training DataLoader
     dataset_train = ZipDataset([
         ZipDataset([
@@ -129,17 +133,7 @@ def train():
                                   num_workers=args.num_workers)
 
     # Model
-    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
-        model = MattingBase(args.model_backbone).to(device)
-        optimizer = Adam([
-            {'params': model.backbone.parameters(), 'lr': 1e-4},
-            {'params': model.aspp.parameters(), 'lr': 5e-4},
-            {'params': model.decoder.parameters(), 'lr': 5e-4}
-        ])
-    else:
-        model_cfg = factory.create_model_cfg(args)
-        model = factory.create_segmenter(model_cfg).to(device)
-        optimizer = Adam(model.parameters(), 1e-4)
+    model, optimizer = load_model_and_optimizer(args, device)
 
     if args.model_last_checkpoint is not None:
         load_matched_state_dict(model, torch.load(args.model_last_checkpoint))
@@ -197,6 +191,7 @@ def train():
                 true_bgr[aug_affine_idx] = T.RandomAffine(degrees=(-1, 1), translate=(0.01, 0.01))(true_bgr[aug_affine_idx])
             del aug_affine_idx
 
+            print(true_src.shape)
             with autocast():
                 pred_pha, pred_fgr, pred_err = model(true_src, true_bgr)[:3]
                 loss = compute_loss(pred_pha, pred_fgr, pred_err, true_pha, true_fgr)
@@ -244,6 +239,9 @@ def compute_loss(pred_pha, pred_fgr, pred_err, true_pha, true_fgr):
 def random_crop(*imgs):
     w = random.choice(range(256, 512))
     h = random.choice(range(256, 512))
+    # USE THIS FOR Uformer :(
+    # w = 512
+    # h = 512
     results = []
     for img in imgs:
         img = kornia.resize(img, (max(h, w), max(h, w)))
