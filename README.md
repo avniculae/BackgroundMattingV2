@@ -1,8 +1,32 @@
 # Our modifications
 
 * Added `--device` flag and replaced `.cuda()` calls in `train_base.py` with `.to(device)` calls.
-* Added to device flag in `train_base.py` at `model.load_pretrained_deeplabv3_state_dict` and removed the (incorrect) `model_state` look.
 * Updated paths in `DATA_PATH`.
+* Performed end-to-end integration of segmenter into the Video Matting codebase.
+
+* Train base
+  ```
+  python -W ignore train_base.py \
+        --dataset-name videomatte240k \
+        --model-backbone vit_tiny_patch16_384  \
+        --model-name mattingbase-vit_tiny_patch16_384-videomatte240k \
+        --epoch-end 8 --log-valid-interval 1 --checkpoint-interval 1
+  ```
+
+* Inference
+  ```
+  python inference_video.py \                            
+        --model-type mattingbase \
+        --model-backbone vit_tiny_patch16_384 \
+        --model-backbone-scale 0.25 \
+        --model-refine-mode sampling \
+        --model-refine-sample-pixels 80000 \
+        --model-checkpoint "checkpoint/mattingbase-vit_tiny_patch16_384-videomatte240k/epoch-0-iter-9.pth" \
+        --video-src "Footage/Videos/amateur_green.mp4" \
+        --video-bgr "Footage/Videos/amateur_green.png" \
+        --output-dir "Inference/amateur-green-vit-2" \
+        --output-type com fgr pha err
+  ```
 
 # Real-Time High-Resolution Background Matting
 

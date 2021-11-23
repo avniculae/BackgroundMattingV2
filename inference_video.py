@@ -39,6 +39,11 @@ from dataset import augmentation as A
 from model import MattingBase, MattingRefine
 from inference_utils import HomographicAlignment
 
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
+
+from segmenter.segm.model import factory
+
 
 # --------------- Arguments ---------------
 
@@ -46,7 +51,7 @@ from inference_utils import HomographicAlignment
 parser = argparse.ArgumentParser(description='Inference video')
 
 parser.add_argument('--model-type', type=str, required=True, choices=['mattingbase', 'mattingrefine'])
-parser.add_argument('--model-backbone', type=str, required=True, choices=['resnet101', 'resnet50', 'mobilenetv2'])
+parser.add_argument('--model-backbone', type=str, required=True)
 parser.add_argument('--model-backbone-scale', type=float, default=0.25)
 parser.add_argument('--model-checkpoint', type=str, required=True)
 parser.add_argument('--model-refine-mode', type=str, default='sampling', choices=['full', 'sampling', 'thresholding'])
@@ -59,12 +64,16 @@ parser.add_argument('--video-bgr', type=str, required=True)
 parser.add_argument('--video-target-bgr', type=str, default=None, help="Path to video onto which to composite the output (default to flat green)")
 parser.add_argument('--video-resize', type=int, default=None, nargs=2)
 
-parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cuda')
+parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
 parser.add_argument('--preprocess-alignment', action='store_true')
 
 parser.add_argument('--output-dir', type=str, required=True)
 parser.add_argument('--output-types', type=str, required=True, nargs='+', choices=['com', 'pha', 'fgr', 'err', 'ref'])
 parser.add_argument('--output-format', type=str, default='video', choices=['video', 'image_sequences'])
+
+parser.add_argument('--decoder', type=str, choices = ['mask_transformer', 'linear'], default='mask_transformer')
+parser.add_argument('--dropout', type=float, default=0.0)
+parser.add_argument('--drop-path', type=float, default=0.1)
 
 args = parser.parse_args()
 
@@ -116,7 +125,14 @@ device = torch.device(args.device)
 
 # Load model
 if args.model_type == 'mattingbase':
-    model = MattingBase(args.model_backbone)
+    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
+        model = MattingBase(args.model_backbone)
+    else:
+        print('aici')
+        model_cfg = factory.create_model_cfg(args)
+        print('bam')
+        model = factory.create_segmenter(model_cfg)
+        print('acolo')
 if args.model_type == 'mattingrefine':
     model = MattingRefine(
         args.model_backbone,
@@ -128,7 +144,6 @@ if args.model_type == 'mattingrefine':
 
 model = model.to(device).eval()
 model.load_state_dict(torch.load(args.model_checkpoint, map_location=device), strict=False)
-
 
 # Load video and background
 vid = VideoDataset(args.video_src)
@@ -148,7 +163,6 @@ if os.path.exists(args.output_dir):
     else:
         exit()
 os.makedirs(args.output_dir)
-
 
 # Prepare writers
 if args.output_format == 'video':
@@ -176,7 +190,6 @@ else:
     if 'ref' in args.output_types:
         ref_writer = ImageSequenceWriter(os.path.join(args.output_dir, 'ref'), 'jpg')
     
-
 # Conversion loop
 with torch.no_grad():
     for input_batch in tqdm(DataLoader(dataset, batch_size=1, pin_memory=True)):

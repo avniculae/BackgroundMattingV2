@@ -37,15 +37,19 @@ from dataset import augmentation as A
 from model import MattingBase
 from model.utils import load_matched_state_dict
 
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
+
+from segm.model import factory
+
+
 
 # --------------- Arguments ---------------
-
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--dataset-name', type=str, required=True, choices=DATA_PATH.keys())
 
-parser.add_argument('--model-backbone', type=str, required=True, choices=['resnet101', 'resnet50', 'mobilenetv2'])
+parser.add_argument('--model-backbone', type=str, required=True)
 parser.add_argument('--model-name', type=str, required=True)
 parser.add_argument('--model-pretrain-initialization', type=str, default=None)
 parser.add_argument('--model-last-checkpoint', type=str, default=None)
@@ -62,6 +66,11 @@ parser.add_argument('--log-valid-interval', type=int, default=5000)
 parser.add_argument('--checkpoint-interval', type=int, default=5000)
 
 parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
+
+parser.add_argument('--decoder', type=str, choices = ['mask_transformer', 'linear'], default='mask_transformer')
+parser.add_argument('--dropout', type=float, default=0.0)
+parser.add_argument('--drop-path', type=float, default=0.1)
+
 
 args = parser.parse_args()
 
@@ -99,7 +108,6 @@ def train():
                                   batch_size=args.batch_size,
                                   num_workers=args.num_workers,
                                   pin_memory=True)
-    
     # Validation DataLoader
     dataset_valid = ZipDataset([
         ZipDataset([
@@ -121,18 +129,23 @@ def train():
                                   num_workers=args.num_workers)
 
     # Model
-    model = MattingBase(args.model_backbone).to(device)
+    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
+        model = MattingBase(args.model_backbone).to(device)
+        optimizer = Adam([
+            {'params': model.backbone.parameters(), 'lr': 1e-4},
+            {'params': model.aspp.parameters(), 'lr': 5e-4},
+            {'params': model.decoder.parameters(), 'lr': 5e-4}
+        ])
+    else:
+        model_cfg = factory.create_model_cfg(args)
+        model = factory.create_segmenter(model_cfg).to(device)
+        optimizer = Adam(model.parameters(), 1e-4)
 
     if args.model_last_checkpoint is not None:
         load_matched_state_dict(model, torch.load(args.model_last_checkpoint))
     elif args.model_pretrain_initialization is not None:
         model.load_pretrained_deeplabv3_state_dict(torch.load(args.model_pretrain_initialization, map_location=device))
 
-    optimizer = Adam([
-        {'params': model.backbone.parameters(), 'lr': 1e-4},
-        {'params': model.aspp.parameters(), 'lr': 5e-4},
-        {'params': model.decoder.parameters(), 'lr': 5e-4}
-    ])
     scaler = GradScaler()
 
     # Logging and checkpoints
