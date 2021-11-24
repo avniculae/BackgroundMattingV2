@@ -41,11 +41,6 @@ from inference_utils import HomographicAlignment
 
 from model_loader import load_model_and_optimizer
 
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
-
-from segmenter.segm.model import factory
-
 
 # --------------- Arguments ---------------
 
@@ -53,7 +48,7 @@ from segmenter.segm.model import factory
 parser = argparse.ArgumentParser(description='Inference video')
 
 parser.add_argument('--model-type', type=str, required=True, choices=['mattingbase', 'mattingrefine'])
-parser.add_argument('--model-backbone', type=str, required=True)
+parser.add_argument('--model-backbone', type=str, required=False)
 parser.add_argument('--model-backbone-scale', type=float, default=0.25)
 parser.add_argument('--model-checkpoint', type=str, required=True)
 parser.add_argument('--model-refine-mode', type=str, default='sampling', choices=['full', 'sampling', 'thresholding'])
@@ -73,9 +68,20 @@ parser.add_argument('--output-dir', type=str, required=True)
 parser.add_argument('--output-types', type=str, required=True, nargs='+', choices=['com', 'pha', 'fgr', 'err', 'ref'])
 parser.add_argument('--output-format', type=str, default='video', choices=['video', 'image_sequences'])
 
+# segmenter 
+# ----------------------------------
 parser.add_argument('--decoder', type=str, choices = ['mask_transformer', 'linear'], default='mask_transformer')
 parser.add_argument('--dropout', type=float, default=0.0)
 parser.add_argument('--drop-path', type=float, default=0.1)
+
+# Uformer 
+# ----------------------------------
+parser.add_argument('--arch', type=str, choices = ['UNet', 'Uformer', 'Uformer16', 'Uformer32', 'Uformer_CatCross', 'Uformer_Cross'], default=None)
+parser.add_argument('--embed-dim', type=int, default=16)
+parser.add_argument('--win-size', type=int, default=8)
+parser.add_argument('--train-ps', type=int, default=512)
+parser.add_argument('--token-projection', type=str, default = 'linear')
+parser.add_argument('--token-mlp', type=str, default = 'ffn')
 
 args = parser.parse_args()
 
@@ -137,7 +143,7 @@ if args.model_type == 'mattingrefine':
         args.model_refine_threshold,
         args.model_refine_kernel_size)
 
-model = model.to(device).eval()
+model = model.eval()
 model.load_state_dict(torch.load(args.model_checkpoint, map_location=device), strict=False)
 
 # Load video and background
@@ -150,6 +156,8 @@ dataset = ZipDataset([vid, bgr], transforms=A.PairCompose([
 ]))
 if args.video_target_bgr:
     dataset = ZipDataset([dataset, VideoDataset(args.video_target_bgr, transforms=T.ToTensor())])
+
+print('boom')
 
 # Create output directory
 if os.path.exists(args.output_dir):
@@ -184,7 +192,7 @@ else:
         err_writer = ImageSequenceWriter(os.path.join(args.output_dir, 'err'), 'jpg')
     if 'ref' in args.output_types:
         ref_writer = ImageSequenceWriter(os.path.join(args.output_dir, 'ref'), 'jpg')
-    
+
 # Conversion loop
 with torch.no_grad():
     for input_batch in tqdm(DataLoader(dataset, batch_size=1, pin_memory=True)):

@@ -15,7 +15,6 @@ Example:
 """
 
 import argparse
-from Uformer.model import Uformer
 import kornia
 import torch
 import os
@@ -72,11 +71,11 @@ parser.add_argument('--drop-path', type=float, default=0.1)
 # Uformer 
 # ----------------------------------
 parser.add_argument('--arch', type=str, choices = ['UNet', 'Uformer', 'Uformer16', 'Uformer32', 'Uformer_CatCross', 'Uformer_Cross'], default=None)
-parser.add_argument('--embed_dim', type=int, default=16)
-parser.add_argument('--win_size', type=int, default=8)
-parser.add_argument('--train_ps', type=int, default=512)
-parser.add_argument('--token_projection', type=str, default = 'linear')
-parser.add_argument('--token_mlp', type=str, default = 'ffn')
+parser.add_argument('--embed-dim', type=int, default=16)
+parser.add_argument('--win-size', type=int, default=8)
+parser.add_argument('--train-ps', type=int, default=512)
+parser.add_argument('--token-projection', type=str, default = 'linear')
+parser.add_argument('--token-mlp', type=str, default = 'ffn')
 
 args = parser.parse_args()
 
