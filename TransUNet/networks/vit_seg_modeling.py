@@ -146,7 +146,7 @@ class Embeddings(nn.Module):
                                        out_channels=config.hidden_size,
                                        kernel_size=patch_size,
                                        stride=patch_size)
-
+        self.position_embeddings = nn.Parameter(torch.zeros(1,n_patches, config.hidden_size))
         self.dropout = Dropout(config.transformer["dropout_rate"])
 
 
@@ -158,7 +158,6 @@ class Embeddings(nn.Module):
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
         x = x.flatten(2)
         x = x.transpose(-1, -2)  # (B, n_patches, hidden)
-        self.position_embeddings = nn.Parameter(torch.zeros(1, x.shape[1], x.shape[-1]))
 
         print(x.shape, self.position_embeddings.shape)
         embeddings = x + self.position_embeddings
@@ -369,16 +368,16 @@ class DecoderCup(nn.Module):
 
 
 class VisionTransformer(nn.Module):
-    def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
+    def __init__(self, config, img_size=512, num_classes=21843, zero_head=False, vis=False):
         super(VisionTransformer, self).__init__()
-        inchans, outchans = 6, 37
+        outchans = 37
         self.num_classes = num_classes
         self.zero_head = zero_head
         self.classifier = config.classifier
         self.transformer = Transformer(config, img_size, vis)
         self.decoder = DecoderCup(config)
         self.segmentation_head = SegmentationHead(
-            in_channels=inchans,
+            in_channels=config['decoder_channels'][-1],
             out_channels=outchans,
             kernel_size=3,
         )

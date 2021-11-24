@@ -40,7 +40,7 @@ from model.utils import load_matched_state_dict
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
 
-from segm.model import factory
+# from segm.model import factory
 from TransUNet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from TransUNet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 
@@ -141,7 +141,8 @@ def train():
     elif args.model_backbone == 'transunet':
         config_vit = CONFIGS_ViT_seg['ViT-B_16']
         config_vit.n_skip = 0
-        model = ViT_seg(config_vit, img_size=224, num_classes=2)
+        model = ViT_seg(config_vit, img_size=256, num_classes=2)
+        optimizer = Adam(model.parameters(), 1e-4)
     else:
         model_cfg = factory.create_model_cfg(args)
         model = factory.create_segmenter(model_cfg).to(device)
@@ -250,6 +251,9 @@ def compute_loss(pred_pha, pred_fgr, pred_err, true_pha, true_fgr):
 def random_crop(*imgs):
     w = random.choice(range(256, 512))
     h = random.choice(range(256, 512))
+    # Use this for TransUNet
+    w = 256
+    h = 256
     results = []
     for img in imgs:
         img = kornia.resize(img, (max(h, w), max(h, w)))
@@ -269,6 +273,9 @@ def valid(model, dataloader, writer, step):
             true_pha = true_pha.to(device, non_blocking=True)
             true_fgr = true_fgr.to(device, non_blocking=True)
             true_bgr = true_bgr.to(device, non_blocking=True)
+            # For TransUNet
+            true_pha, true_fgr, true_bgr = random_crop(true_pha, true_fgr, true_bgr)
+
             true_src = true_pha * true_fgr + (1 - true_pha) * true_bgr
 
             pred_pha, pred_fgr, pred_err = model(true_src, true_bgr)[:3]
