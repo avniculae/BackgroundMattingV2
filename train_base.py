@@ -41,6 +41,8 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
 
 from segm.model import factory
+from TransUNet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
+from TransUNet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 
 
 
@@ -136,6 +138,10 @@ def train():
             {'params': model.aspp.parameters(), 'lr': 5e-4},
             {'params': model.decoder.parameters(), 'lr': 5e-4}
         ])
+    elif args.model_backbone == 'transunet':
+        config_vit = CONFIGS_ViT_seg['ViT-B_16']
+        config_vit.n_skip = 0
+        model = ViT_seg(config_vit, img_size=224, num_classes=2)
     else:
         model_cfg = factory.create_model_cfg(args)
         model = factory.create_segmenter(model_cfg).to(device)

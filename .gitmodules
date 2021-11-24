@@ -1,3 +1,6 @@
 [submodule "segmenter"]
 	path = segmenter
 	url = https://github.com/avniculae/segmenter.git
+[submodule "TransUNet"]
+	path = TransUNet
+	url = git@github.com:ziiiliu/TransUNet.git
