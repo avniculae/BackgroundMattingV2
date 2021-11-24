@@ -55,7 +55,7 @@ parser.add_argument('--model-pretrain-initialization', type=str, default=None)
 parser.add_argument('--model-last-checkpoint', type=str, default=None)
 
 parser.add_argument('--batch-size', type=int, default=8)
-parser.add_argument('--num-workers', type=int, default=16)
+parser.add_argument('--num-workers', type=int, default=0)
 parser.add_argument('--epoch-start', type=int, default=0)
 parser.add_argument('--epoch-end', type=int, required=True)
 
