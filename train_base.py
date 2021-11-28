@@ -42,7 +42,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
 
 from segm.model import factory
 
-
+sys.path.append(os.path.join(os.path.dirname(__file__), 'vit_pytorch'))
+from vit_pytorch.vit import ViT
 
 # --------------- Arguments ---------------
 parser = argparse.ArgumentParser()
@@ -136,6 +137,18 @@ def train():
             {'params': model.aspp.parameters(), 'lr': 5e-4},
             {'params': model.decoder.parameters(), 'lr': 5e-4}
         ])
+    elif args.model_backbone == 'ViT':
+        model = ViT(image_size = 512,
+                    patch_size = 32,
+                    num_classes = 1000,
+                    dim = 1024,
+                    depth = 6,
+                    heads = 16,
+                    mlp_dim = 2048,
+                    dropout = 0.1,
+                    emb_dropout = 0.1,
+                    out_channels = 37)
+        optimizer = Adam(model.parameters(), 1e-4)
     else:
         model_cfg = factory.create_model_cfg(args)
         model = factory.create_segmenter(model_cfg).to(device)
@@ -242,8 +255,10 @@ def compute_loss(pred_pha, pred_fgr, pred_err, true_pha, true_fgr):
 
 
 def random_crop(*imgs):
-    w = random.choice(range(256, 512))
-    h = random.choice(range(256, 512))
+    # w = random.choice(range(256, 512))
+    # h = random.choice(range(256, 512))
+    w = 32 * random.choice(range(8, 16))
+    h = 32 * random.choice(range(8, 16))
     results = []
     for img in imgs:
         img = kornia.resize(img, (max(h, w), max(h, w)))

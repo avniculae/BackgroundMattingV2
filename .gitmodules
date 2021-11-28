@@ -1,3 +1,6 @@
 [submodule "segmenter"]
 	path = segmenter
 	url = https://github.com/avniculae/segmenter.git
+[submodule "vit_pytorch"]
+	path = vit_pytorch
+	url = https://github.com/avniculae/vit-pytorch

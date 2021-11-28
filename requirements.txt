@@ -1,7 +1,8 @@
-kornia
+kornia==0.4.1
 tensorboard
 torch
 torchvision
 tqdm
 opencv-python
 onnxruntime
+

@@ -35,6 +35,13 @@ from dataset import augmentation as A
 from model import MattingBase, MattingRefine
 from inference_utils import HomographicAlignment
 
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
+
+from segmenter.segm.model import factory
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'vit_pytorch'))
+from vit_pytorch.vit import ViT
 
 # --------------- Arguments ---------------
 
@@ -42,7 +49,7 @@ from inference_utils import HomographicAlignment
 parser = argparse.ArgumentParser(description='Inference images')
 
 parser.add_argument('--model-type', type=str, required=True, choices=['mattingbase', 'mattingrefine'])
-parser.add_argument('--model-backbone', type=str, required=True, choices=['resnet101', 'resnet50', 'mobilenetv2'])
+parser.add_argument('--model-backbone', type=str, required=True)
 parser.add_argument('--model-backbone-scale', type=float, default=0.25)
 parser.add_argument('--model-checkpoint', type=str, required=True)
 parser.add_argument('--model-refine-mode', type=str, default='sampling', choices=['full', 'sampling', 'thresholding'])
@@ -52,8 +59,9 @@ parser.add_argument('--model-refine-kernel-size', type=int, default=3)
 
 parser.add_argument('--images-src', type=str, required=True)
 parser.add_argument('--images-bgr', type=str, required=True)
+parser.add_argument('--images-resize', type=int, default=None, nargs=2)
 
-parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cuda')
+parser.add_argument('--device', type=str, choices=['cpu', 'cuda'], default='cpu')
 parser.add_argument('--num-workers', type=int, default=0, 
     help='number of worker threads used in DataLoader. Note that Windows need to use single thread (0).')
 parser.add_argument('--preprocess-alignment', action='store_true')
@@ -61,6 +69,10 @@ parser.add_argument('--preprocess-alignment', action='store_true')
 parser.add_argument('--output-dir', type=str, required=True)
 parser.add_argument('--output-types', type=str, required=True, nargs='+', choices=['com', 'pha', 'fgr', 'err', 'ref'])
 parser.add_argument('-y', action='store_true')
+
+parser.add_argument('--decoder', type=str, choices = ['mask_transformer', 'linear'], default='mask_transformer')
+parser.add_argument('--dropout', type=float, default=0.0)
+parser.add_argument('--drop-path', type=float, default=0.1)
 
 args = parser.parse_args()
 
@@ -78,7 +90,22 @@ device = torch.device(args.device)
 
 # Load model
 if args.model_type == 'mattingbase':
-    model = MattingBase(args.model_backbone)
+    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
+        model = MattingBase(args.model_backbone)
+    elif args.model_backbone == 'ViT':
+        model = ViT(image_size = 512,
+                    patch_size = 32,
+                    num_classes = 1000,
+                    dim = 1024,
+                    depth = 6,
+                    heads = 16,
+                    mlp_dim = 2048,
+                    dropout = 0.1,
+                    emb_dropout = 0.1,
+                    out_channels = 37)
+    else:
+        model_cfg = factory.create_model_cfg(args)
+        model = factory.create_segmenter(model_cfg)
 if args.model_type == 'mattingrefine':
     model = MattingRefine(
         args.model_backbone,
@@ -97,6 +124,7 @@ dataset = ZipDataset([
     ImagesDataset(args.images_src),
     ImagesDataset(args.images_bgr),
 ], assert_equal_length=True, transforms=A.PairCompose([
+    A.PairApply(T.Resize(args.images_resize[::-1]) if args.images_resize else nn.Identity()),
     HomographicAlignment() if args.preprocess_alignment else A.PairApply(nn.Identity()),
     A.PairApply(T.ToTensor())
 ]))

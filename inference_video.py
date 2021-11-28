@@ -44,6 +44,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'segmenter'))
 
 from segmenter.segm.model import factory
 
+sys.path.append(os.path.join(os.path.dirname(__file__), 'vit_pytorch'))
+from vit_pytorch.vit import ViT
+
 
 # --------------- Arguments ---------------
 
@@ -127,12 +130,21 @@ device = torch.device(args.device)
 if args.model_type == 'mattingbase':
     if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
         model = MattingBase(args.model_backbone)
+    elif args.model_backbone == 'ViT':
+        model = ViT(image_size = 512,
+                    patch_size = 32,
+                    num_classes = 1000,
+                    dim = 1024,
+                    depth = 6,
+                    heads = 16,
+                    mlp_dim = 2048,
+                    dropout = 0.1,
+                    emb_dropout = 0.1,
+                    out_channels = 37)
     else:
-        print('aici')
         model_cfg = factory.create_model_cfg(args)
-        print('bam')
         model = factory.create_segmenter(model_cfg)
-        print('acolo')
+ 
 if args.model_type == 'mattingrefine':
     model = MattingRefine(
         args.model_backbone,
