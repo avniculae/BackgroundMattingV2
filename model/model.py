@@ -3,6 +3,8 @@ from torch import nn
 from torch.nn import functional as F
 from torchvision.models.segmentation.deeplabv3 import ASPP
 
+from model.hybrid import HybridEncoder
+
 from .decoder import Decoder
 from .mobilenet import MobileNetV2Encoder
 from .refiner import Refiner
@@ -18,9 +20,13 @@ class Base(nn.Module):
     
     def __init__(self, backbone: str, in_channels: int, out_channels: int):
         super().__init__()
-        assert backbone in ["resnet50", "resnet101", "mobilenetv2"]
+        assert backbone in ["resnet50", "resnet101", "mobilenetv2", "hybrid"]
         if backbone in ['resnet50', 'resnet101']:
             self.backbone = ResNetEncoder(in_channels, variant=backbone)
+            self.aspp = ASPP(2048, [3, 6, 9])
+            self.decoder = Decoder([256, 128, 64, 48, out_channels], [512, 256, 64, in_channels])
+        elif backbone == 'hybrid':
+            self.backbone = HybridEncoder(in_channels,variant='resnet101')
             self.aspp = ASPP(2048, [3, 6, 9])
             self.decoder = Decoder([256, 128, 64, 48, out_channels], [512, 256, 64, in_channels])
         else:

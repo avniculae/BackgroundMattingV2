@@ -21,6 +21,7 @@ import argparse
 import torch
 import os
 import shutil
+import random
 
 from torch import nn
 from torch.nn import functional as F
@@ -34,6 +35,9 @@ from dataset import ImagesDataset, ZipDataset
 from dataset import augmentation as A
 from model import MattingBase, MattingRefine
 from inference_utils import HomographicAlignment
+from TransUNet.networks.vit_seg_modeling import Transformer, VisionTransformer as ViT_seg
+from TransUNet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
+import kornia
 
 
 # --------------- Arguments ---------------
@@ -41,8 +45,8 @@ from inference_utils import HomographicAlignment
 
 parser = argparse.ArgumentParser(description='Inference images')
 
-parser.add_argument('--model-type', type=str, required=True, choices=['mattingbase', 'mattingrefine'])
-parser.add_argument('--model-backbone', type=str, required=True, choices=['resnet101', 'resnet50', 'mobilenetv2'])
+parser.add_argument('--model-type', type=str, required=True, choices=['mattingbase', 'mattingrefine', 'transformer'])
+parser.add_argument('--model-backbone', type=str, required=True, choices=['resnet101', 'resnet50', 'mobilenetv2', 'transunet'])
 parser.add_argument('--model-backbone-scale', type=float, default=0.25)
 parser.add_argument('--model-checkpoint', type=str, required=True)
 parser.add_argument('--model-refine-mode', type=str, default='sampling', choices=['full', 'sampling', 'thresholding'])
@@ -70,6 +74,19 @@ assert 'err' not in args.output_types or args.model_type in ['mattingbase', 'mat
 assert 'ref' not in args.output_types or args.model_type in ['mattingrefine'], \
     'Only mattingrefine support ref output'
 
+# ----------------------Utils-------------------------
+def random_crop(*imgs):
+    w = random.choice(range(256, 512))
+    h = random.choice(range(256, 512))
+    # Use this for TransUNet
+    w = 256
+    h = 256
+    results = []
+    for img in imgs:
+        img = kornia.resize(img, (max(h, w), max(h, w)))
+        img = kornia.center_crop(img, (h, w))
+        results.append(img)
+    return results
 
 # --------------- Main ---------------
 
@@ -79,7 +96,7 @@ device = torch.device(args.device)
 # Load model
 if args.model_type == 'mattingbase':
     model = MattingBase(args.model_backbone)
-if args.model_type == 'mattingrefine':
+elif args.model_type == 'mattingrefine':
     model = MattingRefine(
         args.model_backbone,
         args.model_backbone_scale,
@@ -87,6 +104,10 @@ if args.model_type == 'mattingrefine':
         args.model_refine_sample_pixels,
         args.model_refine_threshold,
         args.model_refine_kernel_size)
+elif args.model_type == 'transformer':
+    config_vit = CONFIGS_ViT_seg['ViT-B_16']
+    config_vit.n_skip = 0
+    model = ViT_seg(config_vit, img_size=256, num_classes=2)
 
 model = model.to(device).eval()
 model.load_state_dict(torch.load(args.model_checkpoint, map_location=device), strict=False)
@@ -125,8 +146,8 @@ with torch.no_grad():
     for i, (src, bgr) in enumerate(tqdm(dataloader)):
         src = src.to(device, non_blocking=True)
         bgr = bgr.to(device, non_blocking=True)
-        
-        if args.model_type == 'mattingbase':
+        src, bgr = random_crop(src, bgr)
+        if args.model_type == 'mattingbase' or 'transformer':
             pha, fgr, err, _ = model(src, bgr)
         elif args.model_type == 'mattingrefine':
             pha, fgr, _, _, err, ref = model(src, bgr)
@@ -148,3 +169,4 @@ with torch.no_grad():
         if 'ref' in args.output_types:
             ref = F.interpolate(ref, src.shape[2:], mode='nearest')
             Thread(target=writer, args=(ref, os.path.join(args.output_dir, 'ref', pathname + '.jpg'))).start()
+

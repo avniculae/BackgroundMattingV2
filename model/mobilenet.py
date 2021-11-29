@@ -34,6 +34,8 @@ class MobileNetV2Encoder(MobileNetV2):
         x = self.features[0](x)
         x = self.features[1](x)
         x1 = x  # 1/2
+        print("x1 shape: ", x1.shape)
+        print(self.features[2])
         x = self.features[2](x)
         x = self.features[3](x)
         x2 = x  # 1/4

@@ -37,9 +37,12 @@ class ResNetEncoder(ResNet):
         x = self.bn1(x)
         x = self.relu(x)
         x1 = x  # 1/2
+        print('x1.shape: ', x1.shape)
+        # print(self.layer1)
         x = self.maxpool(x)
         x = self.layer1(x)
         x2 = x  # 1/4
+        print("x2.shape: ", x2.shape)
         x = self.layer2(x)
         x3 = x  # 1/8
         x = self.layer3(x)

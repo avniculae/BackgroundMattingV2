@@ -131,7 +131,7 @@ def train():
                                   num_workers=args.num_workers)
 
     # Model
-    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2']:
+    if args.model_backbone in ['resnet101', 'resnet50', 'mobilenetv2', 'hybrid']:
         model = MattingBase(args.model_backbone).to(device)
         optimizer = Adam([
             {'params': model.backbone.parameters(), 'lr': 1e-4},
