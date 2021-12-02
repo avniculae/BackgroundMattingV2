@@ -61,7 +61,7 @@ parser.add_argument('--num-workers', type=int, default=0)
 parser.add_argument('--epoch-start', type=int, default=0)
 parser.add_argument('--epoch-end', type=int, required=True)
 
-parser.add_argument('--log-train-loss-interval', type=int, default=10)
+parser.add_argument('--log-train-loss-interval', type=int, default=1)
 parser.add_argument('--log-train-images-interval', type=int, default=2000)
 parser.add_argument('--log-valid-interval', type=int, default=5000)
 
